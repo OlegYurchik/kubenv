@@ -6,14 +6,14 @@ use std::result;
 use std::str;
 
 use clap::{Parser, Subcommand};
-use kubeman::KubeMan;
+use kubenv::KubEnv;
 
 type Result<T = ()> = result::Result<T, String>;
 
 #[derive(Parser)]
-#[command(name = "KubeMan")]
+#[command(name = "KubEnv")]
 #[command(version = "0.1.0")]
-#[command(about = "CLI application for managing kubernetes configs")]
+#[command(about = "CLI application for managing kubernetes environments")]
 #[command(author = "Oleg Yurchik <oleg@yurchik.space>")]
 struct Cli {
     #[arg(short, long)]
@@ -54,33 +54,33 @@ fn print_error(message: String) {
 fn main() {
     let cli = Cli::parse();
 
-    let mut kubeman = match KubeMan::new(cli.dir, cli.kube_dir) {
-        Ok(km) => km,
+    let mut kubenv = match KubEnv::new(cli.dir, cli.kube_dir) {
+        Ok(ke) => ke,
         Err(msg) => {
             print_error(msg);
             return;
         }
     };
-    if let Err(msg) = kubeman.sync() {
+    if let Err(msg) = kubenv.sync() {
         print_error(msg);
         return;
     }
 
     let result = match &cli.command {
-        Commands::List => list(&kubeman),
-        Commands::Apply { name } => apply(&kubeman, &name),
-        Commands::Add { name, file } => add(&kubeman, &name, &file),
-        Commands::Remove { name } => remove(&kubeman, &name),
-        Commands::Export { name, file } => export(&kubeman, &name, &file),
+        Commands::List => list(&kubenv),
+        Commands::Apply { name } => apply(&kubenv, &name),
+        Commands::Add { name, file } => add(&kubenv, &name, &file),
+        Commands::Remove { name } => remove(&kubenv, &name),
+        Commands::Export { name, file } => export(&kubenv, &name, &file),
     };
     if let Err(msg) = result {
         print_error(msg);
     }
 }
 
-fn list(kubeman: &KubeMan) -> Result {
-    let current_config = kubeman.current_config();
-    for kubeconfig in kubeman.configs() {
+fn list(kubenv: &KubEnv) -> Result {
+    let current_config = kubenv.current_config();
+    for kubeconfig in kubenv.configs() {
         let name = kubeconfig.name();
         let mut output = format!("  {}", name);
         if let Some(cf) = current_config {
@@ -94,21 +94,21 @@ fn list(kubeman: &KubeMan) -> Result {
     return Ok(());
 }
 
-fn apply(kubeman: &KubeMan, name: &str) -> Result {
-    kubeman.apply(name)?;
+fn apply(kubenv: &KubEnv, name: &str) -> Result {
+    kubenv.apply(name)?;
     println!("Apply config '{}' succesfully", name);
 
     return Ok(());
 }
 
-fn remove(kubeman: &KubeMan, name: &str) -> Result {
-    kubeman.remove(&name)?;
+fn remove(kubenv: &KubEnv, name: &str) -> Result {
+    kubenv.remove(&name)?;
     println!("Remove config '{}' successfully", name);
 
     return Ok(());
 }
 
-fn add(kubeman: &KubeMan, name: &Option<String>, path: &Option<PathBuf>) -> Result {
+fn add(kubenv: &KubEnv, name: &Option<String>, path: &Option<PathBuf>) -> Result {
     let content: Vec<u8> = match path {
         Some(path) => match fs::read(&path) {
             Ok(c) => c,
@@ -127,7 +127,7 @@ fn add(kubeman: &KubeMan, name: &Option<String>, path: &Option<PathBuf>) -> Resu
             content
         }
     };
-    kubeman.import(&content, name.clone())?;
+    kubenv.import(&content, name.clone())?;
     match name {
         Some(n) => println!("Import config '{}' successfully", n),
         None => println!("Import config succesfully"),
@@ -136,8 +136,8 @@ fn add(kubeman: &KubeMan, name: &Option<String>, path: &Option<PathBuf>) -> Resu
     return Ok(());
 }
 
-fn export(kubeman: &KubeMan, name: &str, path: &Option<PathBuf>) -> Result {
-    let content = kubeman.export(&name)?;
+fn export(kubenv: &KubEnv, name: &str, path: &Option<PathBuf>) -> Result {
+    let content = kubenv.export(&name)?;
     let content = match str::from_utf8(&content) {
         Ok(c) => c,
         Err(msg) => {

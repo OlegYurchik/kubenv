@@ -19,10 +19,10 @@ fn get_default_kube_dir() -> Result<PathBuf> {
     return Ok(kube_dir);
 }
 
-fn get_default_kubeman_dir() -> Result<PathBuf> {
+fn get_default_kubenv_dir() -> Result<PathBuf> {
     let kube_dir = get_default_kube_dir()?;
-    let kubeman_dir = kube_dir.join("kubeman");
-    return Ok(kubeman_dir);
+    let kubenv_dir = kube_dir.join("kubenv");
+    return Ok(kubenv_dir);
 }
 
 fn get_file_hash(path: &PathBuf) -> Result<String> {
@@ -81,34 +81,34 @@ impl PartialOrd for KubeConfig {
     }
 }
 
-pub struct KubeMan {
+pub struct KubEnv {
     kube_dir: PathBuf,
-    kubeman_dir: PathBuf,
+    kubenv_dir: PathBuf,
     current_config: Option<KubeConfig>,
     configs: Vec<KubeConfig>,
     configs_by_name: HashMap<String, KubeConfig>,
     configs_by_hash: HashMap<String, KubeConfig>,
 }
 
-impl KubeMan {
-    pub fn new(kubeman_dir: Option<PathBuf>, kube_dir: Option<PathBuf>) -> Result<Self> {
+impl KubEnv {
+    pub fn new(kubenv_dir: Option<PathBuf>, kube_dir: Option<PathBuf>) -> Result<Self> {
         let kube_dir = match kube_dir {
             Some(path_buf) => path_buf,
             None => get_default_kube_dir()?,
         };
-        let kubeman_dir = match kubeman_dir {
+        let kubenv_dir = match kubenv_dir {
             Some(path_buf) => path_buf,
-            None => get_default_kubeman_dir()?,
+            None => get_default_kubenv_dir()?,
         };
-        let kubeman = Self {
+        let kubenv = Self {
             kube_dir,
-            kubeman_dir,
+            kubenv_dir,
             current_config: None,
             configs: vec![],
             configs_by_name: HashMap::new(),
             configs_by_hash: HashMap::new(),
         };
-        return Ok(kubeman);
+        return Ok(kubenv);
     }
 
     pub fn current_config(&self) -> Option<&KubeConfig> {
@@ -164,7 +164,7 @@ impl KubeMan {
 
         let mut kubeconfig_filename = name.clone();
         kubeconfig_filename.push_str(".kubeconfig");
-        let kubeconfig_path = self.kubeman_dir.join(kubeconfig_filename);
+        let kubeconfig_path = self.kubenv_dir.join(kubeconfig_filename);
         if let Err(msg) = fs::write(&kubeconfig_path, content) {
             match kubeconfig_path.to_str() {
                 Some(p) => return Err(format!("Cannot write file '{}': {}", p, msg)),
@@ -209,16 +209,16 @@ impl KubeMan {
     }
 
     pub fn sync(&mut self) -> Result {
-        if !self.kubeman_dir.is_dir() {
-            if let Err(msg) = fs::create_dir_all(self.kubeman_dir.as_path()) {
-                match self.kubeman_dir.to_str() {
+        if !self.kubenv_dir.is_dir() {
+            if let Err(msg) = fs::create_dir_all(self.kubenv_dir.as_path()) {
+                match self.kubenv_dir.to_str() {
                     Some(path) => {
                         return Err(format!(
-                            "Cannot create kubeman directory '{}': {}",
+                            "Cannot create kubenv directory '{}': {}",
                             path, msg,
                         ))
                     }
-                    None => return Err(format!("Cannot create kubeman directory: {}", msg)),
+                    None => return Err(format!("Cannot create kubenv directory: {}", msg)),
                 }
             }
         };
@@ -230,16 +230,16 @@ impl KubeMan {
     }
 
     fn update_configs(&mut self) -> Result {
-        let config_files = match fs::read_dir(&self.kubeman_dir) {
+        let config_files = match fs::read_dir(&self.kubenv_dir) {
             Ok(value) => value,
-            Err(msg) => match self.kubeman_dir.to_str() {
+            Err(msg) => match self.kubenv_dir.to_str() {
                 Some(path) => {
                     return Err(format!(
                         "Cannot read files from directory '{}': {}",
                         path, msg,
                     ))
                 }
-                None => return Err(format!("Cannot read files from kubeman directory: {}", msg)),
+                None => return Err(format!("Cannot read files from kubenv directory: {}", msg)),
             },
         };
 

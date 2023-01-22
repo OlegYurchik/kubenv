@@ -188,7 +188,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kubeman"
+name = "kubenv"
 version = "0.1.0"
 dependencies = [
  "clap",
