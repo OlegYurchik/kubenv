@@ -4,19 +4,36 @@ CLI application for managing kubernetes configs.
 
 ## Installation
 
+### Build
+
+```
+git clone https://github.com/OlegYurchik/kubeman
+cd kubeman
+cargo build --release
+sudo cp ./target/release/kubeman /usr/local/bin/kubeman
+```
+
+### Binary
+
+```
+curl https://github.com/OlegYurchik/kubeman/releases/latest/download/kubeman.tar.gz | tar -xz
+sudo mv ./kubeman/kubeman /usr/local/bin/kubeman
+rm -rf ./kubeman
+```
+
 ## Quickstart
 
-See configs list
+### Configs list
 ```
 kubeman list
 ```
 
-Apply any config
+### Apply config
 ```
 kubeman apply config_name
 ```
 
-Add new config
+### Add config
 ```
 kubeman add --name config_name --file /config/path
 ```
@@ -25,7 +42,7 @@ or
 cat /config/path | kubeman add --name config_name
 ```
 
-Export config
+### Export config
 ```
 kubeman export config_name --file /new/config/path
 ```

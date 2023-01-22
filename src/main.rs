@@ -2,13 +2,18 @@ use std::fs;
 use std::io;
 use std::io::Read;
 use std::path::PathBuf;
+use std::result;
 use std::str;
 
 use clap::{Parser, Subcommand};
-use kubeman::{KubeMan, Result};
+use kubeman::KubeMan;
+
+type Result<T = ()> = result::Result<T, String>;
 
 #[derive(Parser)]
 #[command(name = "KubeMan")]
+#[command(version = "0.1.0")]
+#[command(about = "CLI application for managing kubernetes configs")]
 #[command(author = "Oleg Yurchik <oleg@yurchik.space>")]
 struct Cli {
     #[arg(short, long)]
@@ -17,7 +22,7 @@ struct Cli {
     kube_dir: Option<PathBuf>,
 
     #[command(subcommand)]
-    command: Option<Commands>,
+    command: Commands,
 }
 
 #[derive(Subcommand)]
@@ -62,12 +67,11 @@ fn main() {
     }
 
     let result = match &cli.command {
-        Some(Commands::List) => list(&kubeman),
-        Some(Commands::Apply { name }) => apply(&kubeman, &name),
-        Some(Commands::Add { name, file }) => add(&kubeman, &name, &file),
-        Some(Commands::Remove { name }) => remove(&kubeman, &name),
-        Some(Commands::Export { name, file }) => export(&kubeman, &name, &file),
-        None => Ok(()),
+        Commands::List => list(&kubeman),
+        Commands::Apply { name } => apply(&kubeman, &name),
+        Commands::Add { name, file } => add(&kubeman, &name, &file),
+        Commands::Remove { name } => remove(&kubeman, &name),
+        Commands::Export { name, file } => export(&kubeman, &name, &file),
     };
     if let Err(msg) = result {
         print_error(msg);
