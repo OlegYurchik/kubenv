@@ -16,9 +16,8 @@ sudo cp ./target/release/kubeman /usr/local/bin/kubeman
 ### Binary
 
 ```
-curl https://github.com/OlegYurchik/kubeman/releases/latest/download/kubeman.tar.gz | tar -xz
-sudo mv ./kubeman/kubeman /usr/local/bin/kubeman
-rm -rf ./kubeman
+wget -c https://github.com/OlegYurchik/kubeman/releases/latest/download/kubeman.tar.gz -O - | tar -xz
+sudo mv ./kubeman /usr/local/bin/kubeman
 ```
 
 ## Quickstart
