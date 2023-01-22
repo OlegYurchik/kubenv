@@ -139,7 +139,7 @@ impl KubeMan {
         }
         if let Err(msg) = fs::copy(&kubeconfig.path, config_file) {
             return Err(format!(
-                "Cannot apply config with name '{}': {}",
+                "Cannot copy config '{}' to config file: {}",
                 kubeconfig.name, msg,
             ));
         }
@@ -149,12 +149,12 @@ impl KubeMan {
 
     pub fn import(&self, content: &[u8], name: Option<String>) -> Result {
         let hash = sha256::digest(content);
-        if let Some(kc) = self.configs_by_hash.get(&hash) {
+        if let Some(kc) = self.get_config_by_hash(&hash) {
             return Err(format!("Config already exists with name: '{}'", &kc.name));
         }
         let name = match name {
             Some(n) => {
-                if let Some(kc) = self.configs_by_name.get(&n) {
+                if let Some(kc) = self.get_config_by_name(&n) {
                     return Err(format!("Config with name '{}' already exists", kc.name));
                 }
                 n
@@ -167,16 +167,33 @@ impl KubeMan {
         let kubeconfig_path = self.kubeman_dir.join(kubeconfig_filename);
         if let Err(msg) = fs::write(&kubeconfig_path, content) {
             match kubeconfig_path.to_str() {
-                Some(p) => return Err(format!("Cannot write to file '{}': {}", p, msg)),
-                None => return Err(format!("Cannot write to file: {}", msg)),
+                Some(p) => return Err(format!("Cannot write file '{}': {}", p, msg)),
+                None => return Err(format!("Cannot write file: {}", msg)),
             }
         };
 
         return Ok(());
     }
 
-    pub fn remove(&self, name: String) -> Result {
-        let kubeconfig = match self.configs_by_name.get(&name) {
+    pub fn export(&self, name: &str) -> Result<Vec<u8>> {
+        let kubeconfig = match self.get_config_by_name(name) {
+            Some(kc) => kc,
+            None => return Err(format!("Cannot find config with name '{}'", name)),
+        };
+
+        let content = match fs::read(&kubeconfig.path) {
+            Ok(content) => content,
+            Err(msg) => match kubeconfig.path.to_str() {
+                Some(path) => return Err(format!("Cannot read file '{}': {}", path, msg)),
+                None => return Err(format!("Cannot read file: {}", msg)),
+            },
+        };
+
+        return Ok(content);
+    }
+
+    pub fn remove(&self, name: &str) -> Result {
+        let kubeconfig = match self.get_config_by_name(name) {
             Some(kc) => kc,
             None => return Err(format!("Cannot find config with name '{}'", name)),
         };
@@ -262,17 +279,19 @@ impl KubeMan {
         let hash = get_file_hash(&current_config_file)?;
 
         if current_config_file.is_file() {
-            self.current_config = Some(KubeConfig::new(current_config_file, hash, None));
+            let kubeconfig = KubeConfig::new(current_config_file, hash, None);
+            self.current_config = Some(kubeconfig.clone());
+            _ = self.add(kubeconfig.clone());
         }
 
         return Ok(());
     }
 
     fn add(&mut self, kubeconfig: KubeConfig) -> Result {
-        if let Some(kc) = self.configs_by_name.get(&kubeconfig.name) {
+        if let Some(kc) = self.get_config_by_name(&kubeconfig.name) {
             return Err(format!("Config with name '{}' already exists", kc.name));
         }
-        if let Some(kc) = self.configs_by_hash.get(&kubeconfig.hash) {
+        if let Some(kc) = self.get_config_by_hash(&kubeconfig.hash) {
             return Err(format!("Config already exists with name '{}'", kc.name));
         }
 

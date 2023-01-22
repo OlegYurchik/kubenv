@@ -1,5 +1,8 @@
 use std::fs;
+use std::io;
+use std::io::Read;
 use std::path::PathBuf;
+use std::str;
 
 use clap::{Parser, Subcommand};
 use kubeman::{KubeMan, Result};
@@ -23,12 +26,17 @@ enum Commands {
     Apply {
         name: String,
     },
+    Add {
+        #[arg(short, long)]
+        name: Option<String>,
+        #[arg(short, long)]
+        file: Option<PathBuf>,
+    },
     Remove {
         name: String,
     },
-    Import {
-        #[arg(short, long)]
-        name: Option<String>,
+    Export {
+        name: String,
         #[arg(short, long)]
         file: Option<PathBuf>,
     },
@@ -54,10 +62,11 @@ fn main() {
     }
 
     let result = match &cli.command {
-        Some(Commands::List) => list(kubeman),
-        Some(Commands::Apply { name }) => apply(kubeman, name.clone()),
-        Some(Commands::Import { name, file }) => import(kubeman, name.clone(), file.clone()),
-        Some(Commands::Remove { name }) => remove(kubeman, name.clone()),
+        Some(Commands::List) => list(&kubeman),
+        Some(Commands::Apply { name }) => apply(&kubeman, &name),
+        Some(Commands::Add { name, file }) => add(&kubeman, &name, &file),
+        Some(Commands::Remove { name }) => remove(&kubeman, &name),
+        Some(Commands::Export { name, file }) => export(&kubeman, &name, &file),
         None => Ok(()),
     };
     if let Err(msg) = result {
@@ -65,7 +74,7 @@ fn main() {
     }
 }
 
-fn list(kubeman: KubeMan) -> Result {
+fn list(kubeman: &KubeMan) -> Result {
     let current_config = kubeman.current_config();
     for kubeconfig in kubeman.configs() {
         let name = kubeconfig.name();
@@ -81,14 +90,21 @@ fn list(kubeman: KubeMan) -> Result {
     return Ok(());
 }
 
-fn apply(kubeman: KubeMan, name: String) -> Result {
-    kubeman.apply(&name)?;
+fn apply(kubeman: &KubeMan, name: &str) -> Result {
+    kubeman.apply(name)?;
     println!("Apply config '{}' succesfully", name);
 
     return Ok(());
 }
 
-fn import(kubeman: KubeMan, name: Option<String>, path: Option<PathBuf>) -> Result {
+fn remove(kubeman: &KubeMan, name: &str) -> Result {
+    kubeman.remove(&name)?;
+    println!("Remove config '{}' successfully", name);
+
+    return Ok(());
+}
+
+fn add(kubeman: &KubeMan, name: &Option<String>, path: &Option<PathBuf>) -> Result {
     let content: Vec<u8> = match path {
         Some(path) => match fs::read(&path) {
             Ok(c) => c,
@@ -100,20 +116,46 @@ fn import(kubeman: KubeMan, name: Option<String>, path: Option<PathBuf>) -> Resu
             }
         },
         None => {
-            let content: Vec<u8> = Vec::new();
+            let mut content: Vec<u8> = Vec::new();
+            if let Err(msg) = io::stdin().read_to_end(&mut content) {
+                return Err(format!("Cannot read content from stdin: {}", msg));
+            };
             content
         }
     };
-    kubeman.import(&content, name)?;
-    // TODO: Need add name to println
-    println!("Import config succesfully");
+    kubeman.import(&content, name.clone())?;
+    match name {
+        Some(n) => println!("Import config '{}' successfully", n),
+        None => println!("Import config succesfully"),
+    }
 
     return Ok(());
 }
 
-fn remove(kubeman: KubeMan, name: String) -> Result {
-    kubeman.remove(name.clone())?;
-    println!("Remove config '{}' successfully", name);
+fn export(kubeman: &KubeMan, name: &str, path: &Option<PathBuf>) -> Result {
+    let content = kubeman.export(&name)?;
+    let content = match str::from_utf8(&content) {
+        Ok(c) => c,
+        Err(msg) => {
+            return Err(format!(
+                "Cannot convert '{}' config to utf-8: {}",
+                name, msg
+            ))
+        }
+    };
+
+    match path {
+        Some(path) => {
+            if let Err(msg) = fs::write(path, content) {
+                match path.to_str() {
+                    Some(path) => return Err(format!("Cannot write file '{}': {}", path, msg)),
+                    None => return Err(format!("Cannot write file: {}", msg)),
+                }
+            }
+            println!("Config '{}' exported successfully", name);
+        }
+        None => println!("{}", content),
+    }
 
     return Ok(());
 }
