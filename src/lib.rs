@@ -1,5 +1,6 @@
 use std::cmp::{Ordering, PartialOrd};
 use std::fs;
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::result;
 
@@ -8,6 +9,7 @@ use home;
 use sha256;
 
 pub type Result<T = ()> = result::Result<T, String>;
+const BUF_SIZE: usize = 1024;
 
 fn get_default_kube_dir() -> Result<PathBuf> {
     let home_dir = match home::home_dir() {
@@ -119,12 +121,59 @@ impl KubEnv {
         return self.configs.iter().collect();
     }
 
-    pub fn get_config_by_name(&self, name: &str) -> Option<&KubeConfig> {
-        return self.configs_by_name.get(name);
+    pub fn get_content(&self, name: &str) -> Result<BufReader<fs::File>> {
+        let kubeconfig = match self.get_config_by_name(name) {
+            Some(kc) => kc,
+            None => return Err(format!("Cannot find config with name '{}'", name)),
+        };
+
+        return match fs::File::open(&kubeconfig.path) {
+            Ok(f) => Ok(BufReader::with_capacity(BUF_SIZE, f)),
+            Err(msg) => match kubeconfig.path.to_str() {
+                Some(path) => Err(format!("Cannot open file '{}': {}", path, msg)),
+                None => Err(format!("Cannot open file: {}", msg)),
+            },
+        };
     }
 
-    pub fn get_config_by_hash(&self, hash: &str) -> Option<&KubeConfig> {
-        return self.configs_by_hash.get(hash);
+    pub fn set_content<R: Read>(&self, name: Option<String>, reader: &mut BufReader<R>) -> Result {
+        let mut content: Vec<u8> = Vec::new();
+        if let Err(msg) = reader.read_to_end(&mut content) {
+            return Err(format!("Cannot read content from file: {}", msg));
+        };
+
+        let hash = sha256::digest(&content as &[u8]);
+        if let Some(kc) = self.get_config_by_hash(&hash) {
+            return Err(format!("Config already exists with name: '{}'", &kc.name));
+        }
+        let name = match name {
+            Some(n) => {
+                if let Some(kc) = self.get_config_by_name(&n) {
+                    return Err(format!("Config with name '{}' already exists", kc.name));
+                }
+                n
+            }
+            None => hash.clone(),
+        };
+
+        let mut kubeconfig_filename = name.clone();
+        kubeconfig_filename.push_str(".kubeconfig");
+        let kubeconfig_path = self.kubenv_dir.join(kubeconfig_filename);
+        let mut writer = match fs::File::create(&kubeconfig_path) {
+            Ok(f) => BufWriter::with_capacity(BUF_SIZE, f),
+            Err(msg) => match kubeconfig_path.to_str() {
+                Some(p) => return Err(format!("Cannot open file '{}': {}", p, msg)),
+                None => return Err(format!("Cannot open file: {}", msg)),
+            },
+        };
+        if let Err(msg) = writer.write_all(&content) {
+            match kubeconfig_path.to_str() {
+                Some(p) => return Err(format!("Cannot write file '{}': {}", p, msg)),
+                None => return Err(format!("Cannot write file: {}", msg)),
+            }
+        }
+
+        return Ok(());
     }
 
     pub fn apply(&self, name: &str) -> Result {
@@ -145,51 +194,6 @@ impl KubEnv {
         }
 
         return Ok(());
-    }
-
-    pub fn import(&self, content: &[u8], name: Option<String>) -> Result {
-        let hash = sha256::digest(content);
-        if let Some(kc) = self.get_config_by_hash(&hash) {
-            return Err(format!("Config already exists with name: '{}'", &kc.name));
-        }
-        let name = match name {
-            Some(n) => {
-                if let Some(kc) = self.get_config_by_name(&n) {
-                    return Err(format!("Config with name '{}' already exists", kc.name));
-                }
-                n
-            }
-            None => hash.clone(),
-        };
-
-        let mut kubeconfig_filename = name.clone();
-        kubeconfig_filename.push_str(".kubeconfig");
-        let kubeconfig_path = self.kubenv_dir.join(kubeconfig_filename);
-        if let Err(msg) = fs::write(&kubeconfig_path, content) {
-            match kubeconfig_path.to_str() {
-                Some(p) => return Err(format!("Cannot write file '{}': {}", p, msg)),
-                None => return Err(format!("Cannot write file: {}", msg)),
-            }
-        };
-
-        return Ok(());
-    }
-
-    pub fn export(&self, name: &str) -> Result<Vec<u8>> {
-        let kubeconfig = match self.get_config_by_name(name) {
-            Some(kc) => kc,
-            None => return Err(format!("Cannot find config with name '{}'", name)),
-        };
-
-        let content = match fs::read(&kubeconfig.path) {
-            Ok(content) => content,
-            Err(msg) => match kubeconfig.path.to_str() {
-                Some(path) => return Err(format!("Cannot read file '{}': {}", path, msg)),
-                None => return Err(format!("Cannot read file: {}", msg)),
-            },
-        };
-
-        return Ok(content);
     }
 
     pub fn remove(&self, name: &str) -> Result {
@@ -227,6 +231,14 @@ impl KubEnv {
         self.update_current_config()?;
 
         return Ok(());
+    }
+
+    fn get_config_by_name(&self, name: &str) -> Option<&KubeConfig> {
+        return self.configs_by_name.get(name);
+    }
+
+    fn get_config_by_hash(&self, hash: &str) -> Option<&KubeConfig> {
+        return self.configs_by_hash.get(hash);
     }
 
     fn update_configs(&mut self) -> Result {

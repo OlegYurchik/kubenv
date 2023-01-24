@@ -37,11 +37,6 @@ kubectl env list
 kubenv list
 ```
 
-### Apply config
-```bash
-kubenv apply config_name
-```
-
 ### Add config
 ```bash
 kubenv add --name config_name --file /config/path
@@ -55,17 +50,31 @@ or
 cat /config/path | kubenv add --name config_name
 ```
 
+### Remove config
+```bash
+kubenv remove config_name
+```
+
+### Show config
+```bash
+kubenv show config_name
+```
+
+### Apply config
+```bash
+kubenv apply config_name
+```
+
 ### Export config
 ```bash
 kubenv export config_name --file /new/config/path
 ```
 or
 ```bash
-kubenv export config_name > /new/config/path
+kubenv show config_name > /new/config/path
 ```
 
 ## TODO
 
-1. Now commands `export` and `import` working with full content. Need change to working through
-buffer. Need remove `export` method from `KubEnv` struct implementation
- 
+1. Setup getting kube home dir from OS environments (if it exists).
+
