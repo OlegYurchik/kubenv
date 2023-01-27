@@ -22,7 +22,7 @@ sudo mv ./kubenv /usr/local/bin/kubenv
 
 After installation you can setup KubEnv like a Kubectl plugin
 ```bash
-sudo ln -sf /usr/local/bin/kubectl-env /usr/local/bin/kubenv
+sudo ln -sf /usr/local/bin/kubenv /usr/local/bin/kubectl-env
 ```
 
 And run KubEnv as `kubectl env`. Example:

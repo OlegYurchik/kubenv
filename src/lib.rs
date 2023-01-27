@@ -228,7 +228,7 @@ impl KubEnv {
         };
 
         self.update_configs()?;
-        self.update_current_config()?;
+        _ = self.update_current_config();
 
         return Ok(());
     }

@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
+use std::io::{stdin, stdout, BufReader, Read, Write};
 use std::path::PathBuf;
 use std::result;
 use std::str;
@@ -12,7 +12,7 @@ const BUF_SIZE: usize = 1024;
 
 #[derive(Parser)]
 #[command(name = "KubEnv")]
-#[command(version = "0.1.0")]
+#[command(version = "0.3.1")]
 #[command(about = "CLI application for managing kubernetes environments")]
 #[command(author = "Oleg Yurchik <oleg@yurchik.space>")]
 struct Cli {
