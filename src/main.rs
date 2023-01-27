@@ -12,7 +12,7 @@ const BUF_SIZE: usize = 1024;
 
 #[derive(Parser)]
 #[command(name = "KubEnv")]
-#[command(version = "0.3.1")]
+#[command(version = "0.3.2")]
 #[command(about = "CLI application for managing kubernetes environments")]
 #[command(author = "Oleg Yurchik <oleg@yurchik.space>")]
 struct Cli {

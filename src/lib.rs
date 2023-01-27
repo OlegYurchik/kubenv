@@ -183,8 +183,10 @@ impl KubEnv {
         };
 
         let config_file = self.kube_dir.join("config");
-        if get_file_hash(&config_file)? == kubeconfig.hash {
-            return Err(format!("Config '{}' already applied", name));
+        if let Ok(hash) = get_file_hash(&config_file) {
+            if hash == kubeconfig.hash {
+                return Err(format!("Config '{}' already applied", name));
+            }
         }
         if let Err(msg) = fs::copy(&kubeconfig.path, config_file) {
             return Err(format!(

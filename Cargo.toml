@@ -1,6 +1,6 @@
 [package]
 name = "kubenv"
-version = "0.3.0"
+version = "0.3.2"
 description = "CLI application for managing kubernetes environments"
 authors = ["Oleg Yurchik <oleg@yurchik.space>"]
 license = "MIT OR Apache-2.0"
